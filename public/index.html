@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Demo Tareas</title>
+</head>
+<body>
+  <h1>Tareas en tiempo real</h1>
+  <input id="usuario" placeholder="usuario">
+  <input id="clave" type="password" placeholder="clave (mín. 6)">
+  <button onclick="entrar('registro')">Registrar</button>
+  <button onclick="entrar('login')">Entrar</button>
+  <hr>
+  <input id="titulo" placeholder="Título de la tarea">
+  <button onclick="crear()">Crear tarea</button>
+  <ul id="registro"></ul>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let socket;
+    const $ = (id) => document.getElementById(id);
+    const anotar = (texto) => {
+      const li = document.createElement('li');
+      li.textContent = texto;
+      $('registro').prepend(li);
+    };
+
+    async function pedir(ruta, cuerpo) {
+      const r = await fetch(ruta, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cuerpo),
+      });
+      const datos = r.status === 204 ? null : await r.json();
+      anotar(`${r.status} ${ruta} ${JSON.stringify(datos)}`);
+      return r;
+    }
+
+    async function entrar(tipo) {
+      const r = await pedir(`/api/auth/${tipo}`, { nombre: $('usuario').value, clave: $('clave').value });
+      if (!r.ok) return;
+      if (socket) socket.disconnect();
+      socket = io();
+      ['tarea:creada', 'tarea:actualizada', 'tarea:eliminada', 'tarea:archivo'].forEach((ev) =>
+        socket.on(ev, (d) => anotar(`EVENTO ${ev} ${JSON.stringify(d)}`))
+      );
+    }
+
+    function crear() {
+      pedir('/api/tareas', { titulo: $('titulo').value });
+    }
+  </script>
+</body>
+</html>
